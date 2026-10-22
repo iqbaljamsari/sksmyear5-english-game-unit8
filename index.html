@@ -101,8 +101,8 @@
             <!-- Cloud Connection Status Indicator -->
             <div class="flex items-center gap-2">
                 <div id="sync-status" class="hidden sm:flex items-center gap-1.5 bg-teal-900/60 text-teal-200 px-3 py-1 rounded-full text-xs border border-teal-500/30">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span id="sync-text">Cloud Sync Ready</span>
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="sync-text">Cloud Sync Live</span>
                 </div>
 
                 <div id="user-badge" class="hidden bg-teal-800/80 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 border border-teal-500/40">
@@ -209,7 +209,7 @@
                     <i data-lucide="rotate-ccw" class="w-5 h-5 text-amber-700"></i>
                     <span>Total Attempts Completed: <strong id="attempt-count-display" class="text-base font-bold">0</strong></span>
                 </div>
-                <span class="text-amber-800 font-medium hidden sm:inline">Records are saved instantly across all devices!</span>
+                <span class="text-amber-800 font-medium hidden sm:inline">Records synced live across all devices!</span>
             </div>
         </section>
 
@@ -430,25 +430,25 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase configuration environment fallback
+        // Environment Firebase Config Fallback with persistent public storage
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyDemoConfigKeyForYear5EnglishGame",
-            authDomain: "year5-travel-quest.firebaseapp.com",
-            projectId: "year5-travel-quest",
-            storageBucket: "year5-travel-quest.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef123456"
+            apiKey: "AIzaSyD-PlaceholderForMrIqbalYear5GameKey",
+            authDomain: "year5-travel-pbd.firebaseapp.com",
+            projectId: "year5-travel-pbd",
+            storageBucket: "year5-travel-pbd.appspot.com",
+            messagingSenderId: "9876543210",
+            appId: "1:9876543210:web:abcdef123456789"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mr-iqbal-year5-app';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mr-iqbal-year5-pbd-v2';
         let isCloudConnected = false;
-        let allCloudRecords = {};
+        window.cloudRecordsCache = {};
 
-        // Sign in anonymously or with provided token
+        // Sign in anonymously or with custom token automatically across devices
         async function initAuth() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -457,38 +457,51 @@
                     await signInAnonymously(auth);
                 }
                 isCloudConnected = true;
-                document.getElementById('sync-status').classList.remove('hidden');
+                const statusElem = document.getElementById('sync-status');
+                if (statusElem) statusElem.classList.remove('hidden');
                 listenToCloudRecords();
             } catch (err) {
-                console.warn('Firebase Auth falling back to LocalStorage:', err);
-                document.getElementById('sync-text').textContent = 'Local Storage Mode';
+                console.warn('Firebase Cloud Authentication falling back to LocalStorage cache:', err);
+                const syncText = document.getElementById('sync-text');
+                if (syncText) syncText.textContent = 'Local Storage Mode';
+                const syncDot = document.getElementById('sync-dot');
+                if (syncDot) syncDot.className = 'w-2 h-2 rounded-full bg-amber-400';
             }
         }
 
-        // Live Cloud Firestore Real-time Sync
+        // Real-time listener for public PBD records shared across all devices
         function listenToCloudRecords() {
             const recordsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'pbd_records');
             onSnapshot(recordsCollection, (snapshot) => {
-                allCloudRecords = {};
+                const updated = {};
                 snapshot.forEach(doc => {
-                    allCloudRecords[doc.id] = doc.data();
+                    updated[doc.id] = doc.data();
                 });
-                // Sync to window global variable
-                window.cloudRecordsCache = allCloudRecords;
+                window.cloudRecordsCache = updated;
+                // Merge into Local Storage so offline devices preserve historical records
+                saveToLocalStorageBackup(updated);
+
                 if (window.updateMenuBadges) window.updateMenuBadges();
                 if (window.isTeacherDashboardOpen) window.loadPBDDashboardData();
             }, (error) => {
-                console.error("Cloud snapshot listener error:", error);
+                console.error("Cloud snapshot sync error:", error);
             });
         }
 
-        // Global function to save student records directly to Firebase Cloud
+        function saveToLocalStorageBackup(recordsObj) {
+            const existing = getStoredLocalRecords();
+            const merged = { ...existing, ...recordsObj };
+            localStorage.setItem('MR_IQBAL_Y5_PBD_RECORDS', JSON.stringify(merged));
+        }
+
+        // Global save function called when pupils answer questions
         window.saveRecordCloud = async function(pupilName, act1Score, act2Score, incrementAttempt) {
             if (!pupilName) return;
             const docId = pupilName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
             
-            // Read current record from cloud cache or local cache
-            const existing = (window.cloudRecordsCache && window.cloudRecordsCache[docId]) ? window.cloudRecordsCache[docId] : getStoredLocalRecord(pupilName);
+            // Read existing records from cloud cache or local storage
+            const records = window.getAllStoredRecords();
+            const existing = records[docId] || getStoredLocalRecord(pupilName);
             
             const attemptsCount = existing ? (incrementAttempt ? (existing.attempts || 1) + 1 : (existing.attempts || 1)) : 1;
             const act1Best = act1Score !== null ? Math.max(existing?.firstAct1 || 0, act1Score) : (existing?.firstAct1 || 0);
@@ -504,25 +517,23 @@
                 lastUpdated: new Date().toLocaleDateString('ms-MY')
             };
 
-            // Save locally as immediate backup
+            // Save to Local Storage immediately
             saveLocalRecord(pupilName, recordData);
 
-            // Save to Cloud Firestore Realtime DB
+            // Sync to Firestore Cloud Database
             if (isCloudConnected && auth.currentUser) {
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'pbd_records', docId);
                     await setDoc(docRef, recordData, { merge: true });
                 } catch (e) {
-                    console.error("Firestore sync error:", e);
+                    console.error("Firestore setDoc sync error:", e);
                 }
             }
         };
 
         window.getAllStoredRecords = function() {
-            if (window.cloudRecordsCache && Object.keys(window.cloudRecordsCache).length > 0) {
-                return window.cloudRecordsCache;
-            }
-            return getStoredLocalRecords();
+            const localRecs = getStoredLocalRecords();
+            return { ...localRecs, ...window.cloudRecordsCache };
         };
 
         function getStoredLocalRecords() {
