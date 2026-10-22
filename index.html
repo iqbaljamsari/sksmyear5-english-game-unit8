@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mr Iqbal's Year 5 English Travel Quest</title>
+    
+    <!-- PWA Manifest Meta -->
+    <meta name="theme-color" content="#0d9488">
+    <meta name="description" content="Year 5 English Interactive Game for PBD Assessment by Mr Iqbal">
+    <link rel="apple-touch-icon" href="https://api.iconify.design/lucide:compass.svg?color=%230d9488">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        travel: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            accent: '#f59e0b',
+                            sky: '#0284c7'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .prevent-scroll {
+            touch-action: none;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; color: black !important; }
+            .print-card { border: 1px solid #ccc; box-shadow: none !important; }
+        }
+
+        .print-only { display: none; }
+
+        .ws-cell {
+            transition: all 0.15s ease-in-out;
+            aspect-ratio: 1;
+        }
+        
+        .ws-cell.selected {
+            background-color: #f59e0b !important;
+            color: white !important;
+            transform: scale(1.05);
+            font-weight: bold;
+        }
+
+        .ws-cell.found {
+            background-color: #10b981 !important;
+            color: white !important;
+            font-weight: bold;
+        }
+
+        .stamp-badge {
+            transform: rotate(-12deg);
+            box-shadow: 0 0 0 3px #059669;
+        }
+    </style>
+</head>
+<body class="bg-amber-50/50 min-h-screen text-slate-800 flex flex-col justify-between">
+
+    <!-- Top Header -->
+    <header class="bg-gradient-to-r from-teal-700 via-emerald-600 to-teal-800 text-white shadow-md sticky top-0 z-30 no-print">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-amber-400 p-2 rounded-xl text-teal-900 font-extrabold shadow-inner flex items-center justify-center">
+                    <i data-lucide="plane" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight md:text-xl">English Travel Quest</h1>
+                    <p class="text-xs text-teal-100">Year 5 • Teacher Mr Iqbal</p>
+                </div>
+            </div>
+
+            <!-- Student Info / Teacher Button -->
+            <div class="flex items-center gap-2">
+                <div id="user-badge" class="hidden bg-teal-800/80 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 border border-teal-500/40">
+                    <i data-lucide="user" class="w-4 h-4 text-amber-300"></i>
+                    <span id="player-display-name">Pupil</span>
+                </div>
+                <button onclick="openTeacherAuth()" class="bg-amber-400 hover:bg-amber-300 text-teal-950 font-bold px-3 py-1.5 rounded-lg text-xs md:text-sm flex items-center gap-1.5 transition shadow">
+                    <i data-lucide="award" class="w-4 h-4"></i>
+                    <span>PBD Records</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-4xl w-full mx-auto p-4 flex-grow flex flex-col justify-center">
+
+        <!-- SCREEN 1: LOGIN / PUPIL REGISTRATION -->
+        <section id="screen-login" class="bg-white p-6 md:p-8 rounded-3xl shadow-xl border-2 border-emerald-100 text-center max-w-md mx-auto my-auto w-full transition-all">
+            <div class="w-20 h-20 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <i data-lucide="compass" class="w-10 h-10"></i>
+            </div>
+            <h2 class="text-2xl font-extrabold text-teal-900 mb-1">Welcome Explorers!</h2>
+            <p class="text-sm text-slate-600 mb-6">Enter your name to begin your Year 5 English travel adventure.</p>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div class="text-left">
+                    <label for="pupil-name" class="block text-xs font-bold text-teal-800 uppercase tracking-wider mb-1">Pupil's Full Name</label>
+                    <div class="relative">
+                        <input type="text" id="pupil-name" required placeholder="e.g. Adam Rayyan" 
+                            class="w-full px-4 py-3.5 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:outline-none text-base font-semibold text-slate-800 transition">
+                        <i data-lucide="pen-tool" class="w-5 h-5 absolute right-3.5 top-3.5 text-slate-400"></i>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold py-3.5 px-6 rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-base">
+                    <span>Start Quest</span>
+                    <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                </button>
+            </form>
+        </section>
+
+        <!-- SCREEN 2: MAIN DASHBOARD MENU -->
+        <section id="screen-menu" class="hidden space-y-6">
+            <div class="bg-gradient-to-br from-teal-800 to-emerald-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+                <div class="absolute -right-6 -bottom-6 opacity-10">
+                    <i data-lucide="map-pin" class="w-48 h-48"></i>
+                </div>
+                <div class="relative z-10">
+                    <span class="bg-amber-400 text-teal-950 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider">Year 5 English PBD</span>
+                    <h2 class="text-2xl md:text-3xl font-extrabold mt-2">Hello, <span id="welcome-name" class="text-amber-300">Explorer</span>!</h2>
+                    <p class="text-teal-100 text-sm md:text-base mt-1">Complete both activities to collect your travel assessment stamps.</p>
+                </div>
+            </div>
+
+            <!-- Activity Select Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Activity 1 Card -->
+                <div onclick="startActivity1()" class="bg-white rounded-2xl p-5 border-2 border-slate-100 hover:border-emerald-500 shadow-md hover:shadow-xl transition cursor-pointer flex flex-col justify-between group">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="p-3 bg-amber-100 text-amber-700 rounded-xl group-hover:bg-amber-500 group-hover:text-white transition">
+                                <i data-lucide="search" class="w-6 h-6"></i>
+                            </span>
+                            <span id="badge-act1" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">Not Done</span>
+                        </div>
+                        <h3 class="font-bold text-lg text-slate-800 group-hover:text-emerald-700">Activity 1: Travel Gear Search</h3>
+                        <p class="text-xs text-slate-500 mt-1">Find and connect hidden packing list items in a word search grid. 3 difficulty levels!</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-teal-700 font-bold">
+                        <span>8 Travel Items</span>
+                        <div class="flex items-center gap-1 group-hover:translate-x-1 transition">
+                            <span>Play Now</span>
+                            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity 2 Card -->
+                <div onclick="startActivity2()" class="bg-white rounded-2xl p-5 border-2 border-slate-100 hover:border-emerald-500 shadow-md hover:shadow-xl transition cursor-pointer flex flex-col justify-between group">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="p-3 bg-sky-100 text-sky-700 rounded-xl group-hover:bg-sky-500 group-hover:text-white transition">
+                                <i data-lucide="edit-3" class="w-6 h-6"></i>
+                            </span>
+                            <span id="badge-act2" class="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">Not Done</span>
+                        </div>
+                        <h3 class="font-bold text-lg text-slate-800 group-hover:text-emerald-700">Activity 2: Be Going To Grammar</h3>
+                        <p class="text-xs text-slate-500 mt-1">Fill in the blanks with correct subject-verb agreement: <strong>is</strong>, <strong>are</strong>, or <strong>am</strong>.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-teal-700 font-bold">
+                        <span>16 Sentences</span>
+                        <div class="flex items-center gap-1 group-hover:translate-x-1 transition">
+                            <span>Play Now</span>
+                            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attempt History Counter Box -->
+            <div class="bg-amber-100/60 border border-amber-300 rounded-2xl p-4 flex items-center justify-between text-xs md:text-sm text-amber-900">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5 text-amber-700"></i>
+                    <span>Total Attempts Completed: <strong id="attempt-count-display" class="text-base font-bold">0</strong></span>
+                </div>
+                <span class="text-amber-800 font-medium hidden sm:inline">All progress is automatically recorded for PBD assessment!</span>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: ACTIVITY 1 - WORD SEARCH -->
+        <section id="screen-act1" class="hidden space-y-4">
+            <div class="flex items-center justify-between bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-slate-200">
+                <button onclick="showMenu()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-xl flex items-center gap-1 text-xs md:text-sm font-semibold">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i> Menu
+                </button>
+                <div class="text-center">
+                    <h2 class="font-extrabold text-sm md:text-base text-teal-900">Activity 1: Travel Word Search</h2>
+                    <p class="text-xs text-slate-500">Level: <span id="act1-level-name" class="font-bold text-amber-600">Easy</span></p>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-400 block">Found</span>
+                    <span id="act1-found-count" class="font-extrabold text-emerald-600 text-sm md:text-base">0 / 4</span>
+                </div>
+            </div>
+
+            <!-- Level Selector Buttons -->
+            <div class="flex justify-center gap-2 bg-slate-100 p-1.5 rounded-2xl max-w-sm mx-auto">
+                <button id="btn-lvl-easy" onclick="changeLevel('easy')" class="flex-1 py-1.5 px-3 text-xs font-bold rounded-xl transition bg-white text-teal-900 shadow-sm">Easy</button>
+                <button id="btn-lvl-moderate" onclick="changeLevel('moderate')" class="flex-1 py-1.5 px-3 text-xs font-bold text-slate-600 hover:text-teal-900 rounded-xl transition">Moderate</button>
+                <button id="btn-lvl-hard" onclick="changeLevel('hard')" class="flex-1 py-1.5 px-3 text-xs font-bold text-slate-600 hover:text-teal-900 rounded-xl transition">Hard</button>
+            </div>
+
+            <!-- Word Search Area -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                <div class="md:col-span-2 bg-white p-3 md:p-5 rounded-3xl shadow-lg border-2 border-emerald-100 flex justify-center items-center overflow-hidden">
+                    <div id="wordsearch-grid" class="grid gap-1 prevent-scroll touch-none select-none max-w-full"></div>
+                </div>
+
+                <div class="bg-white p-4 rounded-3xl shadow-md border border-slate-200">
+                    <h3 class="font-bold text-xs uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                        <i data-lucide="briefcase" class="w-4 h-4 text-emerald-600"></i> Packing List
+                    </h3>
+                    <div id="word-list-container" class="grid grid-cols-2 gap-2 text-xs md:text-sm"></div>
+                    
+                    <button onclick="resetCurrentWordSearch()" class="mt-4 w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reset Grid
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 4: ACTIVITY 2 - FILL IN THE BLANK -->
+        <section id="screen-act2" class="hidden space-y-4">
+            <div class="flex items-center justify-between bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-slate-200">
+                <button onclick="showMenu()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-xl flex items-center gap-1 text-xs md:text-sm font-semibold">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i> Menu
+                </button>
+                <div class="text-center">
+                    <h2 class="font-extrabold text-sm md:text-base text-teal-900">Activity 2: "Be Going To" Journey</h2>
+                    <p class="text-xs text-slate-500">Choose: <strong>is</strong>, <strong>are</strong>, or <strong>am</strong></p>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-400 block">Progress</span>
+                    <span id="act2-progress" class="font-extrabold text-sky-600 text-sm md:text-base">0 / 16</span>
+                </div>
+            </div>
+
+            <!-- Quiz Container -->
+            <div class="bg-white p-5 md:p-8 rounded-3xl shadow-xl border-2 border-sky-100 max-w-2xl mx-auto space-y-6">
+                <div class="bg-sky-50 border border-sky-200 rounded-2xl p-3 text-xs text-sky-900 flex items-start gap-2">
+                    <i data-lucide="info" class="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <strong>Grammar Quick Tip:</strong> Use <strong>am</strong> with <i>I</i>. Use <strong>is</strong> with singular subjects (<i>he, she, Diana</i>). Use <strong>are</strong> with plural subjects (<i>you, we, they, Nadia & Fendi</i>).
+                    </div>
+                </div>
+
+                <div id="act2-question-container" class="space-y-6">
+                    <div class="text-center py-4 px-2">
+                        <span id="act2-q-num" class="inline-block bg-sky-100 text-sky-800 text-xs font-bold px-3 py-1 rounded-full mb-3">Question 1 of 16</span>
+                        <p id="act2-q-text" class="text-lg md:text-2xl font-bold text-slate-800 leading-relaxed"></p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 max-w-md mx-auto">
+                        <button onclick="selectAct2Answer('is')" class="act2-opt-btn py-4 bg-slate-50 hover:bg-sky-100 border-2 border-slate-200 hover:border-sky-400 font-extrabold text-xl rounded-2xl text-slate-800 transition shadow-sm active:scale-95">is</button>
+                        <button onclick="selectAct2Answer('are')" class="act2-opt-btn py-4 bg-slate-50 hover:bg-sky-100 border-2 border-slate-200 hover:border-sky-400 font-extrabold text-xl rounded-2xl text-slate-800 transition shadow-sm active:scale-95">are</button>
+                        <button onclick="selectAct2Answer('am')" class="act2-opt-btn py-4 bg-slate-50 hover:bg-sky-100 border-2 border-slate-200 hover:border-sky-400 font-extrabold text-xl rounded-2xl text-slate-800 transition shadow-sm active:scale-95">am</button>
+                    </div>
+                </div>
+
+                <div id="act2-complete-box" class="hidden text-center py-6 space-y-4">
+                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                        <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+                    </div>
+                    <h3 class="text-2xl font-extrabold text-teal-900">Activity Completed!</h3>
+                    <p class="text-slate-600 text-sm">You scored <strong id="act2-final-score" class="text-emerald-600 text-lg">0</strong> out of 16.</p>
+                    <button onclick="showMenu()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition text-sm">Return to Main Menu</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODAL: TEACHER AUTHENTICATION & PBD RECORDS -->
+        <div id="teacher-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+            <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                <div class="bg-teal-900 text-white p-4 px-6 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="award" class="w-5 h-5 text-amber-400"></i>
+                        <h3 class="font-bold text-lg">Teacher PBD Portal — Mr Iqbal</h3>
+                    </div>
+                    <button onclick="closeTeacherAuth()" class="text-teal-200 hover:text-white p-1">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 overflow-y-auto flex-grow space-y-6">
+                    <div id="teacher-login-step" class="max-w-xs mx-auto text-center space-y-4 py-6">
+                        <i data-lucide="lock" class="w-12 h-12 text-teal-700 mx-auto"></i>
+                        <p class="text-xs text-slate-500">Please enter teacher passcode to access Year 5 Pentaksiran Bilik Darjah (PBD) records.</p>
+                        <input type="password" id="teacher-pass" placeholder="Passcode (Default: iqbal123)" class="w-full px-4 py-2.5 border-2 rounded-xl text-center font-bold text-sm focus:border-teal-500 outline-none">
+                        <button onclick="verifyTeacherPass()" class="w-full bg-teal-700 text-white font-bold py-2.5 rounded-xl hover:bg-teal-600 transition text-sm">Access Records</button>
+                    </div>
+
+                    <div id="teacher-dashboard-step" class="hidden space-y-5">
+                        <div class="flex items-center justify-between border-b pb-3">
+                            <div>
+                                <h4 class="font-bold text-slate-800">Pupils Work Records (PBD)</h4>
+                                <p class="text-xs text-slate-500">Automatic real-time recording per answer</p>
+                            </div>
+                            <button onclick="printPBDRecord()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
+                                <i data-lucide="printer" class="w-4 h-4"></i> Print Assessment
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div class="bg-slate-50 p-3 rounded-xl border text-center">
+                                <span class="text-xs text-slate-400 block">Total Pupils</span>
+                                <span id="pbd-total-pupils" class="text-xl font-extrabold text-teal-800">0</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border text-center">
+                                <span class="text-xs text-slate-400 block">Average Act 1</span>
+                                <span id="pbd-avg-act1" class="text-xl font-extrabold text-amber-600">0%</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border text-center col-span-2 sm:col-span-1">
+                                <span class="text-xs text-slate-400 block">Average Act 2</span>
+                                <span id="pbd-avg-act2" class="text-xl font-extrabold text-sky-600">0/16</span>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto border rounded-2xl">
+                            <table class="w-full text-left text-xs text-slate-700">
+                                <thead class="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] tracking-wider border-b">
+                                    <tr>
+                                        <th class="p-3">Pupil Name</th>
+                                        <th class="p-3">Attempts</th>
+                                        <th class="p-3">Act 1 (Best)</th>
+                                        <th class="p-3">Act 2 (Best)</th>
+                                        <th class="p-3">PBD Level</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pbd-table-body" class="divide-y"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-[11px] text-amber-800 space-y-1">
+                            <strong>PBD Rubric (Tahap Penguasaan):</strong>
+                            <p>TP3 (Satisfactory): 40-59% | TP4 (Good): 60-74% | TP5 (Very Good): 75-89% | TP6 (Excellent): 90-100%</p>
+                        </div>
+
+                        <button onclick="clearPBDRecords()" class="text-xs text-rose-600 hover:underline flex items-center gap-1 pt-2">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear stored records
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRINTABLE ASSESSMENT LAYOUT -->
+        <div class="print-only p-8 space-y-6">
+            <div class="text-center border-b pb-4">
+                <h1 class="text-2xl font-bold uppercase">SK TRAVEL QUEST - REKOD PENTAKSIRAN BILIK DARJAH (PBD)</h1>
+                <p class="text-sm">Bahasa Inggeris Tahun 5 • Guru Subjek: Mr Iqbal</p>
+                <p class="text-xs text-gray-500 mt-1">Tarikh Cetakan: <span id="print-date"></span></p>
+            </div>
+
+            <table class="w-full border-collapse border border-gray-300 text-sm">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-gray-300 p-2 text-left">No.</th>
+                        <th class="border border-gray-300 p-2 text-left">Nama Murid</th>
+                        <th class="border border-gray-300 p-2 text-center">Jumlah Cubaan</th>
+                        <th class="border border-gray-300 p-2 text-center">Aktiviti 1 (Perkataan)</th>
+                        <th class="border border-gray-300 p-2 text-center">Aktiviti 2 (Grammar)</th>
+                        <th class="border border-gray-300 p-2 text-center">Tahap Penguasaan (TP)</th>
+                    </tr>
+                </thead>
+                <tbody id="print-table-body"></tbody>
+            </table>
+
+            <div class="mt-12 flex justify-between text-xs pt-8 border-t">
+                <div>
+                    <p>Disediakan Oleh:</p>
+                    <br><br>
+                    <p>___________________________</p>
+                    <p><strong>(MR IQBAL)</strong><br>Guru Bahasa Inggeris Tahun 5</p>
+                </div>
+                <div>
+                    <p>Disahkan Oleh:</p>
+                    <br><br>
+                    <p>___________________________</p>
+                    <p><strong>(GURU BESAR / PK PENTAKSIRAN)</strong></p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-100 border-t border-slate-200 text-center py-3 text-xs text-slate-500 no-print">
+        <p>Designed for Year 5 English • Interactive Travel Game PBD Pentaksiran</p>
+    </footer>
+
+    <script>
+        /* Easy level uses short words fitting 8x8 grid: tent, tool, box, soap */
+        const EASY_WORDS = ['tent', 'tool', 'box', 'soap'];
+        const MODERATE_WORDS = ['tent', 'tool', 'box', 'soap', 'torch', 'bottle'];
+        const HARD_WORDS = ['tent', 'tool', 'box', 'toothpaste', 'bottle', 'torch', 'shampoo', 'soap'];
+        
+        const ACT2_DATA = [
+            { id: 1, text: "You _____ going to go to the market with me tomorrow.", ans: "are" },
+            { id: 2, text: "I _____ going to watch the movie with my sister tonight.", ans: "am" },
+            { id: 3, text: "She _____ going to cook dinner for us.", ans: "is" },
+            { id: 4, text: "He _____ going to visit his grandfather this holiday.", ans: "is" },
+            { id: 5, text: "They _____ going to go to the beach this weekend.", ans: "are" },
+            { id: 6, text: "We _____ going to buy the books for our science class.", ans: "are" },
+            { id: 7, text: "My sister _____ going to jog around the neighbourhood this morning.", ans: "is" },
+            { id: 8, text: "Dewi and Siti _____ going to go to the library this afternoon.", ans: "are" },
+            { id: 9, text: "Nadia and Fendi _____ going to stay at my house this weekend.", ans: "are" },
+            { id: 10, text: "Illina _____ going to buy a bouquet of flowers to her sister.", ans: "is" },
+            { id: 11, text: "Faizal, Louis and Arvind _____ going to finish their homework today.", ans: "are" },
+            { id: 12, text: "Diana _____ going to clean her room today.", ans: "is" },
+            { id: 13, text: "Najwa _____ going to see the dentist this Thursday.", ans: "is" },
+            { id: 14, text: "I _____ going to take my tablet with me.", ans: "am" },
+            { id: 15, text: "Haziq _____ going to sell his computers.", ans: "is" },
+            { id: 16, text: "Yana _____ going to wash the dishes.", ans: "is" }
+        ];
+
+        let currentPupil = "";
+        let currentLevelAct1 = 'easy';
+        let currentGridSize = 8;
+        let activeWordsLevel = [];
+        let gridMatrix = [];
+        let wordPlacements = {};
+        let selectedCells = [];
+        let isSelecting = false;
+        let foundWords = [];
+
+        let currentAct2Index = 0;
+        let act2Score = 0;
+
+        const STORAGE_KEY = 'MR_IQBAL_Y5_PBD_RECORDS';
+
+        function getStoredRecords() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : {};
+        }
+
+        function saveRecord(pupilName, act1Score, act2Score, incrementAttempt = false) {
+            if (!pupilName) return;
+            const records = getStoredRecords();
+            if (!records[pupilName]) {
+                records[pupilName] = {
+                    name: pupilName,
+                    attempts: 1,
+                    firstAct1: act1Score !== null ? act1Score : 0,
+                    firstAct2: act2Score !== null ? act2Score : 0,
+                    latestAct1: act1Score !== null ? act1Score : 0,
+                    latestAct2: act2Score !== null ? act2Score : 0,
+                    lastUpdated: new Date().toLocaleDateString('ms-MY')
+                };
+            } else {
+                if (incrementAttempt) {
+                    records[pupilName].attempts += 1;
+                }
+                if (act1Score !== null) {
+                    records[pupilName].latestAct1 = Math.max(records[pupilName].latestAct1 || 0, act1Score);
+                    records[pupilName].firstAct1 = Math.max(records[pupilName].firstAct1 || 0, act1Score);
+                }
+                if (act2Score !== null) {
+                    records[pupilName].latestAct2 = Math.max(records[pupilName].latestAct2 || 0, act2Score);
+                    records[pupilName].firstAct2 = Math.max(records[pupilName].firstAct2 || 0, act2Score);
+                }
+                records[pupilName].lastUpdated = new Date().toLocaleDateString('ms-MY');
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            updateMenuBadges();
+        }
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const input = document.getElementById('pupil-name').value.trim();
+            if (!input) return;
+
+            currentPupil = input;
+            document.getElementById('player-display-name').textContent = currentPupil;
+            document.getElementById('welcome-name').textContent = currentPupil;
+            document.getElementById('user-badge').classList.remove('hidden');
+
+            const records = getStoredRecords();
+            if (!records[currentPupil]) {
+                saveRecord(currentPupil, 0, 0, false);
+            }
+
+            showMenu();
+        }
+
+        function showMenu() {
+            switchScreen('screen-menu');
+            updateMenuBadges();
+        }
+
+        function updateMenuBadges() {
+            const records = getStoredRecords();
+            const rec = records[currentPupil];
+            if (rec) {
+                document.getElementById('attempt-count-display').textContent = rec.attempts || 1;
+                
+                const b1 = document.getElementById('badge-act1');
+                if (rec.firstAct1 !== undefined && rec.firstAct1 > 0) {
+                    b1.textContent = `Completed (${rec.firstAct1} words)`;
+                    b1.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700";
+                }
+
+                const b2 = document.getElementById('badge-act2');
+                if (rec.firstAct2 !== undefined && rec.firstAct2 > 0) {
+                    b2.textContent = `Score: ${rec.firstAct2}/16`;
+                    b2.className = "text-xs font-bold px-2.5 py-1 rounded-full bg-sky-100 text-sky-700";
+                }
+            }
+        }
+
+        function startActivity1() {
+            switchScreen('screen-act1');
+            saveRecord(currentPupil, null, null, true); // Record attempt count
+            changeLevel('easy');
+        }
+
+        function changeLevel(lvl) {
+            currentLevelAct1 = lvl;
+            foundWords = [];
+
+            ['easy', 'moderate', 'hard'].forEach(l => {
+                const btn = document.getElementById(`btn-lvl-${l}`);
+                if (l === lvl) {
+                    btn.className = "flex-1 py-1.5 px-3 text-xs font-bold rounded-xl transition bg-amber-500 text-white shadow-sm";
+                } else {
+                    btn.className = "flex-1 py-1.5 px-3 text-xs font-bold text-slate-600 hover:text-teal-900 rounded-xl transition";
+                }
+            });
+
+            if (lvl === 'easy') {
+                currentGridSize = 8;
+                activeWordsLevel = EASY_WORDS; // tent, tool, box, soap
+                document.getElementById('act1-level-name').textContent = "Easy (8x8 Grid)";
+            } else if (lvl === 'moderate') {
+                currentGridSize = 10;
+                activeWordsLevel = MODERATE_WORDS; // + torch, bottle
+                document.getElementById('act1-level-name').textContent = "Moderate (10x10 Grid)";
+            } else {
+                currentGridSize = 12;
+                activeWordsLevel = HARD_WORDS; // All words including toothpaste & shampoo
+                document.getElementById('act1-level-name').textContent = "Hard (12x12 Grid)";
+            }
+
+            generateWordSearchGrid();
+            renderWordList();
+            updateAct1ScoreDisplay();
+        }
+
+        function generateWordSearchGrid() {
+            gridMatrix = Array(currentGridSize).fill(null).map(() => Array(currentGridSize).fill(''));
+            wordPlacements = {};
+
+            activeWordsLevel.forEach(word => {
+                let placed = false;
+                let attempts = 0;
+                const upperWord = word.toUpperCase();
+
+                let directions = [[0, 1], [1, 0]]; // Horizontal right, Vertical down
+                if (currentLevelAct1 === 'hard') {
+                    directions.push([1, 1], [-1, 1]); // Diagonals
+                }
+
+                while (!placed && attempts < 300) {
+                    attempts++;
+                    const dir = directions[Math.floor(Math.random() * directions.length)];
+                    const startR = Math.floor(Math.random() * currentGridSize);
+                    const startC = Math.floor(Math.random() * currentGridSize);
+
+                    if (canPlaceWord(upperWord, startR, startC, dir)) {
+                        const coords = [];
+                        for (let i = 0; i < upperWord.length; i++) {
+                            const r = startR + i * dir[0];
+                            const c = startC + i * dir[1];
+                            gridMatrix[r][c] = upperWord[i];
+                            coords.push({ r, c });
+                        }
+                        wordPlacements[upperWord] = coords;
+                        placed = true;
+                    }
+                }
+            });
+
+            const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            for (let r = 0; r < currentGridSize; r++) {
+                for (let c = 0; c < currentGridSize; c++) {
+                    if (gridMatrix[r][c] === '') {
+                        gridMatrix[r][c] = letters[Math.floor(Math.random() * letters.length)];
+                    }
+                }
+            }
+
+            renderGridUI();
+        }
+
+        function canPlaceWord(word, r, c, dir) {
+            for (let i = 0; i < word.length; i++) {
+                const nr = r + i * dir[0];
+                const nc = c + i * dir[1];
+                if (nr < 0 || nr >= currentGridSize || nc < 0 || nc >= currentGridSize) return false;
+                if (gridMatrix[nr][nc] !== '' && gridMatrix[nr][nc] !== word[i]) return false;
+            }
+            return true;
+        }
+
+        function renderGridUI() {
+            const container = document.getElementById('wordsearch-grid');
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${currentGridSize}, minmax(0, 1fr))`;
+
+            for (let r = 0; r < currentGridSize; r++) {
+                for (let c = 0; c < currentGridSize; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'ws-cell flex items-center justify-center bg-slate-100 text-slate-800 font-extrabold text-xs sm:text-base rounded-lg border border-slate-200 cursor-pointer select-none';
+                    cell.textContent = gridMatrix[r][c];
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+
+                    cell.addEventListener('mousedown', () => startSelect(r, c));
+                    cell.addEventListener('mouseenter', () => hoverSelect(r, c));
+                    cell.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        startSelect(r, c);
+                    });
+
+                    container.appendChild(cell);
+                }
+            }
+
+            window.addEventListener('mouseup', endSelect);
+            container.addEventListener('touchmove', handleTouchMove, { passive: false });
+            window.addEventListener('touchend', endSelect);
+        }
+
+        function renderWordList() {
+            const container = document.getElementById('word-list-container');
+            container.innerHTML = '';
+            activeWordsLevel.forEach(w => {
+                const isFound = foundWords.includes(w.toUpperCase());
+                const item = document.createElement('div');
+                item.className = `p-2 rounded-xl border flex items-center justify-between font-bold text-xs uppercase ${
+                    isFound ? 'bg-emerald-50 border-emerald-300 text-emerald-700 line-through' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`;
+                item.innerHTML = `
+                    <span>${w}</span>
+                    ${isFound ? '<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i>' : ''}
+                `;
+                container.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        function startSelect(r, c) {
+            isSelecting = true;
+            selectedCells = [{ r, c }];
+            updateCellHighlights();
+        }
+
+        function hoverSelect(r, c) {
+            if (!isSelecting) return;
+            const first = selectedCells[0];
+            if (isValidLine(first.r, first.c, r, c)) {
+                selectedCells = getLineCells(first.r, first.c, r, c);
+                updateCellHighlights();
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (!isSelecting) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (elem && elem.dataset.r !== undefined) {
+                const r = parseInt(elem.dataset.r);
+                const c = parseInt(elem.dataset.c);
+                hoverSelect(r, c);
+            }
+        }
+
+        function endSelect() {
+            if (!isSelecting) return;
+            isSelecting = false;
+
+            const selectedWord = selectedCells.map(cell => gridMatrix[cell.r][cell.c]).join('');
+            const reversedWord = selectedWord.split('').reverse().join('');
+
+            let matchedWord = null;
+            if (activeWordsLevel.map(w => w.toUpperCase()).includes(selectedWord)) {
+                matchedWord = selectedWord;
+            } else if (activeWordsLevel.map(w => w.toUpperCase()).includes(reversedWord)) {
+                matchedWord = reversedWord;
+            }
+
+            if (matchedWord && !foundWords.includes(matchedWord)) {
+                foundWords.push(matchedWord);
+                confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+                
+                // Save real-time score directly
+                saveRecord(currentPupil, foundWords.length, null, false);
+            }
+
+            selectedCells = [];
+            updateCellHighlights();
+            renderWordList();
+            updateAct1ScoreDisplay();
+        }
+
+        function isValidLine(r1, c1, r2, c2) {
+            const dr = Math.abs(r2 - r1);
+            const dc = Math.abs(c2 - c1);
+            return r1 === r2 || c1 === c2 || dr === dc;
+        }
+
+        function getLineCells(r1, c1, r2, c2) {
+            const cells = [];
+            const stepR = r2 === r1 ? 0 : (r2 > r1 ? 1 : -1);
+            const stepC = c2 === c1 ? 0 : (c2 > c1 ? 1 : -1);
+            let curR = r1;
+            let curC = c1;
+
+            while (curR !== r2 || curC !== c2) {
+                cells.push({ r: curR, c: curC });
+                curR += stepR;
+                curC += stepC;
+            }
+            cells.push({ r: r2, c: c2 });
+            return cells;
+        }
+
+        function updateCellHighlights() {
+            document.querySelectorAll('.ws-cell').forEach(cell => {
+                const r = parseInt(cell.dataset.r);
+                const c = parseInt(cell.dataset.c);
+                
+                let isFoundCell = false;
+                foundWords.forEach(w => {
+                    const coords = wordPlacements[w] || [];
+                    if (coords.some(coord => coord.r === r && coord.c === c)) {
+                        isFoundCell = true;
+                    }
+                });
+
+                const isSelectedCell = selectedCells.some(coord => coord.r === r && coord.c === c);
+
+                cell.className = 'ws-cell flex items-center justify-center font-extrabold text-xs sm:text-base rounded-lg border border-slate-200 cursor-pointer select-none ';
+                if (isSelectedCell) {
+                    cell.classList.add('selected');
+                } else if (isFoundCell) {
+                    cell.classList.add('found');
+                } else {
+                    cell.classList.add('bg-slate-100', 'text-slate-800');
+                }
+            });
+        }
+
+        function updateAct1ScoreDisplay() {
+            document.getElementById('act1-found-count').textContent = `${foundWords.length} / ${activeWordsLevel.length}`;
+        }
+
+        function resetCurrentWordSearch() {
+            foundWords = [];
+            generateWordSearchGrid();
+            renderWordList();
+            updateAct1ScoreDisplay();
+        }
+
+        function startActivity2() {
+            switchScreen('screen-act2');
+            currentAct2Index = 0;
+            act2Score = 0;
+            saveRecord(currentPupil, null, null, true); // Record attempt count
+            document.getElementById('act2-question-container').classList.remove('hidden');
+            document.getElementById('act2-complete-box').classList.add('hidden');
+            renderAct2Question();
+        }
+
+        function renderAct2Question() {
+            const q = ACT2_DATA[currentAct2Index];
+            document.getElementById('act2-progress').textContent = `${currentAct2Index + 1} / ${ACT2_DATA.length}`;
+            document.getElementById('act2-q-num').textContent = `Sentence ${currentAct2Index + 1} of ${ACT2_DATA.length}`;
+            
+            const textWithBlank = q.text.replace('_____', '<span class="inline-block bg-sky-100 text-sky-800 border-b-4 border-sky-500 px-4 py-0.5 rounded-md font-bold mx-1">_____</span>');
+            document.getElementById('act2-q-text').innerHTML = textWithBlank;
+        }
+
+        function selectAct2Answer(ans) {
+            const q = ACT2_DATA[currentAct2Index];
+            const isCorrect = ans === q.ans;
+
+            if (isCorrect) {
+                act2Score++;
+                confetti({ particleCount: 20, spread: 40, origin: { y: 0.8 } });
+            }
+
+            // Save immediately after each answer
+            saveRecord(currentPupil, null, act2Score, false);
+
+            currentAct2Index++;
+            if (currentAct2Index < ACT2_DATA.length) {
+                renderAct2Question();
+            } else {
+                finishAct2();
+            }
+        }
+
+        function finishAct2() {
+            document.getElementById('act2-question-container').classList.add('hidden');
+            document.getElementById('act2-complete-box').classList.remove('hidden');
+            document.getElementById('act2-final-score').textContent = act2Score;
+        }
+
+        function openTeacherAuth() {
+            document.getElementById('teacher-modal').classList.remove('hidden');
+            document.getElementById('teacher-login-step').classList.remove('hidden');
+            document.getElementById('teacher-dashboard-step').classList.add('hidden');
+        }
+
+        function closeTeacherAuth() {
+            document.getElementById('teacher-modal').classList.add('hidden');
+        }
+
+        function verifyTeacherPass() {
+            const pass = document.getElementById('teacher-pass').value;
+            if (pass === 'iqbal123' || pass === 'admin') {
+                document.getElementById('teacher-login-step').classList.add('hidden');
+                document.getElementById('teacher-dashboard-step').classList.remove('hidden');
+                loadPBDDashboardData();
+            } else {
+                alert('Incorrect passcode! Default passcode is: iqbal123');
+            }
+        }
+
+        function calculateTPLevel(act1Count, act2Score) {
+            const pct1 = (act1Count / 8) * 50;
+            const pct2 = (act2Score / 16) * 50;
+            const total = Math.round(pct1 + pct2);
+
+            if (total >= 90) return { tp: 'TP6', label: 'Excellent (Cemerlang)' };
+            if (total >= 75) return { tp: 'TP5', label: 'Very Good (Sangat Baik)' };
+            if (total >= 60) return { tp: 'TP4', label: 'Good (Baik)' };
+            if (total >= 40) return { tp: 'TP3', label: 'Satisfactory (Memuaskan)' };
+            if (total >= 20) return { tp: 'TP2', label: 'Developing (Mencapai Tahap Minimal)' };
+            return { tp: 'TP1', label: 'Needs Improvement' };
+        }
+
+        function loadPBDDashboardData() {
+            const records = getStoredRecords();
+            const list = Object.values(records);
+
+            document.getElementById('pbd-total-pupils').textContent = list.length;
+
+            let sumAct1 = 0;
+            let sumAct2 = 0;
+
+            const tbody = document.getElementById('pbd-table-body');
+            tbody.innerHTML = '';
+
+            list.forEach(rec => {
+                sumAct1 += rec.firstAct1 || 0;
+                sumAct2 += rec.firstAct2 || 0;
+
+                const tpObj = calculateTPLevel(rec.firstAct1 || 0, rec.firstAct2 || 0);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-800">${rec.name}</td>
+                    <td class="p-3 text-center"><span class="bg-slate-100 px-2 py-0.5 rounded-full text-xs">${rec.attempts}</span></td>
+                    <td class="p-3 text-center font-bold text-amber-600">${rec.firstAct1 || 0}/8</td>
+                    <td class="p-3 text-center font-bold text-sky-600">${rec.firstAct2 || 0}/16</td>
+                    <td class="p-3"><span class="font-bold px-2 py-1 rounded text-xs ${getTPBadgeColor(tpObj.tp)}">${tpObj.tp}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const avg1 = list.length ? Math.round((sumAct1 / (list.length * 8)) * 100) : 0;
+            const avg2 = list.length ? (sumAct2 / list.length).toFixed(1) : 0;
+
+            document.getElementById('pbd-avg-act1').textContent = `${avg1}%`;
+            document.getElementById('pbd-avg-act2').textContent = `${avg2}/16`;
+        }
+
+        function getTPBadgeColor(tp) {
+            switch(tp) {
+                case 'TP6': return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+                case 'TP5': return 'bg-teal-100 text-teal-800';
+                case 'TP4': return 'bg-sky-100 text-sky-800';
+                case 'TP3': return 'bg-amber-100 text-amber-800';
+                default: return 'bg-rose-100 text-rose-800';
+            }
+        }
+
+        function printPBDRecord() {
+            const records = getStoredRecords();
+            const list = Object.values(records);
+            const printBody = document.getElementById('print-table-body');
+            document.getElementById('print-date').textContent = new Date().toLocaleDateString('ms-MY');
+
+            printBody.innerHTML = '';
+            list.forEach((rec, idx) => {
+                const tpObj = calculateTPLevel(rec.firstAct1 || 0, rec.firstAct2 || 0);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="border border-gray-300 p-2 text-center">${idx + 1}</td>
+                    <td class="border border-gray-300 p-2 font-bold">${rec.name}</td>
+                    <td class="border border-gray-300 p-2 text-center">${rec.attempts}</td>
+                    <td class="border border-gray-300 p-2 text-center">${rec.firstAct1 || 0} / 8 words</td>
+                    <td class="border border-gray-300 p-2 text-center">${rec.firstAct2 || 0} / 16 marks</td>
+                    <td class="border border-gray-300 p-2 text-center font-bold">${tpObj.tp} (${tpObj.label})</td>
+                `;
+                printBody.appendChild(tr);
+            });
+
+            window.print();
+        }
+
+        function clearPBDRecords() {
+            if (confirm("Are you sure you want to clear all pupil assessment records?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                loadPBDDashboardData();
+            }
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    self.addEventListener('install', e => e.waitUntil(caches.open('v1').then(c => c.addAll(['/']))));
+                    self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+            });
+        }
+
+        window.onload = function() {
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
