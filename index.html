@@ -81,11 +81,6 @@
             color: white !important;
             font-weight: bold;
         }
-
-        .stamp-badge {
-            transform: rotate(-12deg);
-            box-shadow: 0 0 0 3px #059669;
-        }
     </style>
 </head>
 <body class="bg-amber-50/50 min-h-screen text-slate-800 flex flex-col justify-between">
@@ -103,8 +98,13 @@
                 </div>
             </div>
 
-            <!-- Student Info / Teacher Button -->
+            <!-- Cloud Connection Status Indicator -->
             <div class="flex items-center gap-2">
+                <div id="sync-status" class="hidden sm:flex items-center gap-1.5 bg-teal-900/60 text-teal-200 px-3 py-1 rounded-full text-xs border border-teal-500/30">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="sync-text">Cloud Sync Ready</span>
+                </div>
+
                 <div id="user-badge" class="hidden bg-teal-800/80 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold flex items-center gap-2 border border-teal-500/40">
                     <i data-lucide="user" class="w-4 h-4 text-amber-300"></i>
                     <span id="player-display-name">Pupil</span>
@@ -126,7 +126,7 @@
                 <i data-lucide="compass" class="w-10 h-10"></i>
             </div>
             <h2 class="text-2xl font-extrabold text-teal-900 mb-1">Welcome Explorers!</h2>
-            <p class="text-sm text-slate-600 mb-6">Enter your name to begin your Year 5 English travel adventure.</p>
+            <p class="text-sm text-slate-600 mb-6">Enter your full name to start learning with Mr Iqbal.</p>
 
             <form onsubmit="handleLogin(event)" class="space-y-4">
                 <div class="text-left">
@@ -209,7 +209,7 @@
                     <i data-lucide="rotate-ccw" class="w-5 h-5 text-amber-700"></i>
                     <span>Total Attempts Completed: <strong id="attempt-count-display" class="text-base font-bold">0</strong></span>
                 </div>
-                <span class="text-amber-800 font-medium hidden sm:inline">All progress is automatically recorded for PBD assessment!</span>
+                <span class="text-amber-800 font-medium hidden sm:inline">Records are saved instantly across all devices!</span>
             </div>
         </section>
 
@@ -329,7 +329,7 @@
                         <div class="flex items-center justify-between border-b pb-3">
                             <div>
                                 <h4 class="font-bold text-slate-800">Pupils Work Records (PBD)</h4>
-                                <p class="text-xs text-slate-500">Automatic real-time recording per answer</p>
+                                <p class="text-xs text-slate-500">Real-time Cloud Database recording</p>
                             </div>
                             <button onclick="printPBDRecord()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow">
                                 <i data-lucide="printer" class="w-4 h-4"></i> Print Assessment
@@ -424,8 +424,130 @@
         <p>Designed for Year 5 English • Interactive Travel Game PBD Pentaksiran</p>
     </footer>
 
+    <!-- Firebase Real-Time Cloud Storage Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase configuration environment fallback
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDemoConfigKeyForYear5EnglishGame",
+            authDomain: "year5-travel-quest.firebaseapp.com",
+            projectId: "year5-travel-quest",
+            storageBucket: "year5-travel-quest.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mr-iqbal-year5-app';
+        let isCloudConnected = false;
+        let allCloudRecords = {};
+
+        // Sign in anonymously or with provided token
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                isCloudConnected = true;
+                document.getElementById('sync-status').classList.remove('hidden');
+                listenToCloudRecords();
+            } catch (err) {
+                console.warn('Firebase Auth falling back to LocalStorage:', err);
+                document.getElementById('sync-text').textContent = 'Local Storage Mode';
+            }
+        }
+
+        // Live Cloud Firestore Real-time Sync
+        function listenToCloudRecords() {
+            const recordsCollection = collection(db, 'artifacts', appId, 'public', 'data', 'pbd_records');
+            onSnapshot(recordsCollection, (snapshot) => {
+                allCloudRecords = {};
+                snapshot.forEach(doc => {
+                    allCloudRecords[doc.id] = doc.data();
+                });
+                // Sync to window global variable
+                window.cloudRecordsCache = allCloudRecords;
+                if (window.updateMenuBadges) window.updateMenuBadges();
+                if (window.isTeacherDashboardOpen) window.loadPBDDashboardData();
+            }, (error) => {
+                console.error("Cloud snapshot listener error:", error);
+            });
+        }
+
+        // Global function to save student records directly to Firebase Cloud
+        window.saveRecordCloud = async function(pupilName, act1Score, act2Score, incrementAttempt) {
+            if (!pupilName) return;
+            const docId = pupilName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+            
+            // Read current record from cloud cache or local cache
+            const existing = (window.cloudRecordsCache && window.cloudRecordsCache[docId]) ? window.cloudRecordsCache[docId] : getStoredLocalRecord(pupilName);
+            
+            const attemptsCount = existing ? (incrementAttempt ? (existing.attempts || 1) + 1 : (existing.attempts || 1)) : 1;
+            const act1Best = act1Score !== null ? Math.max(existing?.firstAct1 || 0, act1Score) : (existing?.firstAct1 || 0);
+            const act2Best = act2Score !== null ? Math.max(existing?.firstAct2 || 0, act2Score) : (existing?.firstAct2 || 0);
+
+            const recordData = {
+                name: pupilName,
+                attempts: attemptsCount,
+                firstAct1: act1Best,
+                firstAct2: act2Best,
+                latestAct1: act1Score !== null ? act1Score : (existing?.latestAct1 || 0),
+                latestAct2: act2Score !== null ? act2Score : (existing?.latestAct2 || 0),
+                lastUpdated: new Date().toLocaleDateString('ms-MY')
+            };
+
+            // Save locally as immediate backup
+            saveLocalRecord(pupilName, recordData);
+
+            // Save to Cloud Firestore Realtime DB
+            if (isCloudConnected && auth.currentUser) {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'pbd_records', docId);
+                    await setDoc(docRef, recordData, { merge: true });
+                } catch (e) {
+                    console.error("Firestore sync error:", e);
+                }
+            }
+        };
+
+        window.getAllStoredRecords = function() {
+            if (window.cloudRecordsCache && Object.keys(window.cloudRecordsCache).length > 0) {
+                return window.cloudRecordsCache;
+            }
+            return getStoredLocalRecords();
+        };
+
+        function getStoredLocalRecords() {
+            const data = localStorage.getItem('MR_IQBAL_Y5_PBD_RECORDS');
+            return data ? JSON.parse(data) : {};
+        }
+
+        function getStoredLocalRecord(name) {
+            const docId = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const records = getStoredLocalRecords();
+            return records[docId] || null;
+        }
+
+        function saveLocalRecord(name, data) {
+            const docId = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const records = getStoredLocalRecords();
+            records[docId] = data;
+            localStorage.setItem('MR_IQBAL_Y5_PBD_RECORDS', JSON.stringify(records));
+        }
+
+        initAuth();
+    </script>
+
+    <!-- Main Game Logic Script -->
     <script>
-        /* Easy level uses short words fitting 8x8 grid: tent, tool, box, soap */
         const EASY_WORDS = ['tent', 'tool', 'box', 'soap'];
         const MODERATE_WORDS = ['tent', 'tool', 'box', 'soap', 'torch', 'bottle'];
         const HARD_WORDS = ['tent', 'tool', 'box', 'toothpaste', 'bottle', 'torch', 'shampoo', 'soap'];
@@ -461,42 +583,12 @@
 
         let currentAct2Index = 0;
         let act2Score = 0;
-
-        const STORAGE_KEY = 'MR_IQBAL_Y5_PBD_RECORDS';
-
-        function getStoredRecords() {
-            const data = localStorage.getItem(STORAGE_KEY);
-            return data ? JSON.parse(data) : {};
-        }
+        window.isTeacherDashboardOpen = false;
 
         function saveRecord(pupilName, act1Score, act2Score, incrementAttempt = false) {
-            if (!pupilName) return;
-            const records = getStoredRecords();
-            if (!records[pupilName]) {
-                records[pupilName] = {
-                    name: pupilName,
-                    attempts: 1,
-                    firstAct1: act1Score !== null ? act1Score : 0,
-                    firstAct2: act2Score !== null ? act2Score : 0,
-                    latestAct1: act1Score !== null ? act1Score : 0,
-                    latestAct2: act2Score !== null ? act2Score : 0,
-                    lastUpdated: new Date().toLocaleDateString('ms-MY')
-                };
-            } else {
-                if (incrementAttempt) {
-                    records[pupilName].attempts += 1;
-                }
-                if (act1Score !== null) {
-                    records[pupilName].latestAct1 = Math.max(records[pupilName].latestAct1 || 0, act1Score);
-                    records[pupilName].firstAct1 = Math.max(records[pupilName].firstAct1 || 0, act1Score);
-                }
-                if (act2Score !== null) {
-                    records[pupilName].latestAct2 = Math.max(records[pupilName].latestAct2 || 0, act2Score);
-                    records[pupilName].firstAct2 = Math.max(records[pupilName].firstAct2 || 0, act2Score);
-                }
-                records[pupilName].lastUpdated = new Date().toLocaleDateString('ms-MY');
+            if (window.saveRecordCloud) {
+                window.saveRecordCloud(pupilName, act1Score, act2Score, incrementAttempt);
             }
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
             updateMenuBadges();
         }
 
@@ -515,11 +607,7 @@
             document.getElementById('welcome-name').textContent = currentPupil;
             document.getElementById('user-badge').classList.remove('hidden');
 
-            const records = getStoredRecords();
-            if (!records[currentPupil]) {
-                saveRecord(currentPupil, 0, 0, false);
-            }
-
+            saveRecord(currentPupil, null, null, false);
             showMenu();
         }
 
@@ -529,8 +617,9 @@
         }
 
         function updateMenuBadges() {
-            const records = getStoredRecords();
-            const rec = records[currentPupil];
+            const records = window.getAllStoredRecords ? window.getAllStoredRecords() : {};
+            const docId = currentPupil.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const rec = records[docId];
             if (rec) {
                 document.getElementById('attempt-count-display').textContent = rec.attempts || 1;
                 
@@ -734,7 +823,7 @@
                 foundWords.push(matchedWord);
                 confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
                 
-                // Save real-time score directly
+                // Real-time automatic save to Cloud DB
                 saveRecord(currentPupil, foundWords.length, null, false);
             }
 
@@ -831,7 +920,7 @@
                 confetti({ particleCount: 20, spread: 40, origin: { y: 0.8 } });
             }
 
-            // Save immediately after each answer
+            // Save immediately after each answer to cloud database
             saveRecord(currentPupil, null, act2Score, false);
 
             currentAct2Index++;
@@ -856,6 +945,7 @@
 
         function closeTeacherAuth() {
             document.getElementById('teacher-modal').classList.add('hidden');
+            window.isTeacherDashboardOpen = false;
         }
 
         function verifyTeacherPass() {
@@ -863,6 +953,7 @@
             if (pass === 'iqbal123' || pass === 'admin') {
                 document.getElementById('teacher-login-step').classList.add('hidden');
                 document.getElementById('teacher-dashboard-step').classList.remove('hidden');
+                window.isTeacherDashboardOpen = true;
                 loadPBDDashboardData();
             } else {
                 alert('Incorrect passcode! Default passcode is: iqbal123');
@@ -883,7 +974,7 @@
         }
 
         function loadPBDDashboardData() {
-            const records = getStoredRecords();
+            const records = window.getAllStoredRecords ? window.getAllStoredRecords() : {};
             const list = Object.values(records);
 
             document.getElementById('pbd-total-pupils').textContent = list.length;
@@ -929,7 +1020,7 @@
         }
 
         function printPBDRecord() {
-            const records = getStoredRecords();
+            const records = window.getAllStoredRecords ? window.getAllStoredRecords() : {};
             const list = Object.values(records);
             const printBody = document.getElementById('print-table-body');
             document.getElementById('print-date').textContent = new Date().toLocaleDateString('ms-MY');
@@ -954,7 +1045,7 @@
 
         function clearPBDRecords() {
             if (confirm("Are you sure you want to clear all pupil assessment records?")) {
-                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem('MR_IQBAL_Y5_PBD_RECORDS');
                 loadPBDDashboardData();
             }
         }
